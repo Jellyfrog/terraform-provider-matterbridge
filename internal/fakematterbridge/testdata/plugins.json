@@ -1,0 +1,558 @@
+[
+  {
+    "type": "DynamicPlatform",
+    "name": "matterbridge-zigbee2mqtt",
+    "version": "3.3.0",
+    "description": "Matterbridge zigbee2mqtt plugin",
+    "latestVersion": "3.3.0",
+    "enabled": true,
+    "registeredDevices": 29,
+    "configJson": {
+      "name": "matterbridge-zigbee2mqtt",
+      "type": "DynamicPlatform",
+      "host": "mqtt://localhost",
+      "port": 1883,
+      "protocolVersion": 5,
+      "username": "matterbridge",
+      "password": "fake-mqtt-password",
+      "rejectUnauthorized": true,
+      "topic": "zigbee2mqtt",
+      "zigbeeFrontend": "http://localhost:8080",
+      "whiteList": [],
+      "blackList": [],
+      "switchList": [],
+      "lightList": [],
+      "outletList": [],
+      "featureBlackList": [],
+      "scenesType": "outlet",
+      "scenesPrefix": true,
+      "postfix": "",
+      "debug": false,
+      "unregisterOnShutdown": false,
+      "deviceFeatureBlackList": {},
+      "version": "3.3.0"
+    },
+    "schemaJson": {
+      "title": "Matterbridge zigbee2mqtt plugin",
+      "description": "matterbridge-zigbee2mqtt v. 3.3.0 by https://github.com/Luligu",
+      "type": "object",
+      "required": [
+        "host",
+        "port",
+        "topic"
+      ],
+      "properties": {
+        "name": {
+          "title": "Plugin Name",
+          "description": "Plugin name",
+          "type": "string",
+          "readOnly": true,
+          "ui:widget": "hidden"
+        },
+        "type": {
+          "title": "Plugin Type",
+          "description": "Plugin type",
+          "type": "string",
+          "readOnly": true,
+          "ui:widget": "hidden"
+        },
+        "host": {
+          "title": "MQTT Host",
+          "description": "MQTT server host (IP address or hostname with mqtt:// or mqtts:// or ws:// or wss:// prefix) or mqtt+unix://<SOCKET_PATH> for Unix socket on Linux (e.g. mqtt+unix:///var/run/mosquitto/mqtt.sock). For secure connections, use the mqtts:// or wss:// prefix and ensure your certificates are configured. If you use a hostname, make sure that the hostname is resolvable by the system running matterbridge.",
+          "type": "string",
+          "default": "mqtt://localhost"
+        },
+        "port": {
+          "title": "MQTT Port",
+          "description": "MQTT server port (i.e. 1883 for mqtt://, 8883 for mqtts://, 9001 for ws:// or 9443 for wss://). For Unix socket, this value is ignored.",
+          "type": "number",
+          "default": 1883
+        },
+        "protocolVersion": {
+          "title": "MQTT Protocol Version",
+          "description": "MQTT server protocol version 3, 4 or 5 (default 5). Version 5 is recommended for most modern MQTT brokers.",
+          "type": "number",
+          "default": 5
+        },
+        "username": {
+          "title": "MQTT Username",
+          "description": "MQTT server authentication user. Only required if the MQTT server requires authentication (i.e allow_anonymous false)",
+          "type": "string"
+        },
+        "password": {
+          "title": "MQTT Password",
+          "description": "MQTT server authentication password. Only required if the MQTT server requires authentication (i.e allow_anonymous false)",
+          "type": "string",
+          "ui:widget": "password"
+        },
+        "clientId": {
+          "title": "MQTT Client ID",
+          "description": "MQTT clientId identifier. If not set, a random clientId will be generated.",
+          "type": "string"
+        },
+        "ca": {
+          "title": "MQTT CA Certificate",
+          "description": "Absolute path to the SSL/TLS CA certificate used to sign both the server and client certificates (PEM format). Required for secure connections (i.e. mqtts://) with self-signed certificates.",
+          "type": "string"
+        },
+        "rejectUnauthorized": {
+          "title": "MQTT Reject Unauthorized",
+          "description": "Reject unauthorized MQTT server. Only used for secure connections (i.e. mqtts://).",
+          "type": "boolean",
+          "default": true
+        },
+        "cert": {
+          "title": "MQTT Client Certificate",
+          "description": "Absolute path to the SSL/TLS MQTT client certificate (PEM format). Only required if the MQTT server requires a client certificate for authentication (i.e. require_certificate true).",
+          "type": "string"
+        },
+        "key": {
+          "title": "MQTT Client Private Key",
+          "description": "Absolute path to the SSL/TLS MQTT client private key (PEM format). Only required if the MQTT server requires a client certificate for authentication (i.e. require_certificate true).",
+          "type": "string"
+        },
+        "topic": {
+          "title": "MQTT Topic",
+          "description": "MQTT base topic for Zigbee2MQTT MQTT messages. This should match the base_topic in your Zigbee2MQTT configuration.yaml file.",
+          "type": "string",
+          "default": "zigbee2mqtt"
+        },
+        "zigbeeFrontend": {
+          "title": "Zigbee Frontend",
+          "description": "Zigbee frontend host to prefix the configUrl from matterbridge frontend (i.e. http://192.168.1.100:8080)",
+          "type": "string",
+          "default": "http://localhost:8080"
+        },
+        "whiteList": {
+          "title": "White List",
+          "description": "Only the devices in the list will be exposed. If the list is empty, all the devices will be exposed.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "selectFrom": "name"
+        },
+        "blackList": {
+          "title": "Black List",
+          "description": "The devices in the list will not be exposed. If the list is empty, no devices will be excluded.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "selectFrom": "name"
+        },
+        "switchList": {
+          "title": "Switch List",
+          "description": "The devices in the list will be exposed like switches (don't use it for Alexa, use lightList or outletList instead).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "selectFrom": "name"
+        },
+        "lightList": {
+          "title": "Light List",
+          "description": "The devices in the list will be exposed like lights.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "selectFrom": "name"
+        },
+        "outletList": {
+          "title": "Outlet List",
+          "description": "The devices in the list will be exposed like outlets.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "selectFrom": "name"
+        },
+        "featureBlackList": {
+          "title": "Feature Black List",
+          "description": "The features in the list will not be exposed for all devices.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "selectEntityFrom": "name"
+        },
+        "deviceFeatureBlackList": {
+          "title": "Device Feature Black List",
+          "description": "List of features not to be exposed for a single device. Enter in the first field the name of the device and in the list add all the features to exclude.",
+          "type": "object",
+          "uniqueItems": true,
+          "selectFrom": "name",
+          "additionalProperties": {
+            "description": "List of features not to be exposed for this device. Enter the feature (i.e. device_temperature) to exclude.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true,
+            "selectDeviceEntityFrom": "name"
+          }
+        },
+        "scenesType": {
+          "title": "Scenes Device Type",
+          "description": "Device type to use to expose scenes. If you use Alexa, don't use switch.",
+          "type": "string",
+          "oneOf": [
+            {
+              "title": "Light",
+              "enum": [
+                "light"
+              ]
+            },
+            {
+              "title": "Outlet",
+              "enum": [
+                "outlet"
+              ]
+            },
+            {
+              "title": "Switch",
+              "enum": [
+                "switch"
+              ]
+            },
+            {
+              "title": "Mounted Switch",
+              "enum": [
+                "mounted_switch"
+              ]
+            }
+          ],
+          "default": "outlet"
+        },
+        "scenesPrefix": {
+          "title": "Scenes Prefix",
+          "description": "Add the device/group friendly name before the scene name.",
+          "type": "boolean",
+          "default": true
+        },
+        "postfix": {
+          "title": "Device Postfix",
+          "description": "Add this unique postfix (3 characters max) to each device serial to avoid collision with other instances (you may loose the configuration of the devices in your controller when changing this value).",
+          "type": "string",
+          "default": ""
+        },
+        "debug": {
+          "title": "Enable Debug",
+          "description": "Enable the debug for the plugin (development only)",
+          "type": "boolean",
+          "default": false
+        },
+        "unregisterOnShutdown": {
+          "title": "Unregister On Shutdown",
+          "description": "Unregister all devices on shutdown (development only)",
+          "type": "boolean",
+          "default": false,
+          "ui:widget": "hidden"
+        }
+      }
+    }
+  },
+  {
+    "type": "DynamicPlatform",
+    "name": "matterbridge-hass",
+    "version": "1.6.0",
+    "description": "Matterbridge hass plugin",
+    "latestVersion": "1.6.0",
+    "enabled": true,
+    "registeredDevices": 1,
+    "configJson": {
+      "name": "matterbridge-hass",
+      "type": "DynamicPlatform",
+      "host": "ws://homeassistant.local:8123",
+      "certificatePath": "",
+      "rejectUnauthorized": true,
+      "token": "fake-ha-token",
+      "reconnectTimeout": 60,
+      "reconnectRetries": 10,
+      "filterByArea": "",
+      "filterByLabel": "",
+      "whiteList": [],
+      "blackList": [],
+      "entityWhiteList": [],
+      "entityBlackList": [],
+      "splitEntities": [],
+      "splitByLabel": "",
+      "splitNameStrategy": "Entity name",
+      "controllerStrategy": "Merge",
+      "namePostfix": "",
+      "postfix": "",
+      "airQualityRegex": "",
+      "enableServerRvc": false,
+      "discardHiddenEntities": false,
+      "virtualControlLabel": "",
+      "debug": false,
+      "unregisterOnShutdown": false,
+      "applyFiltersToDeviceEntities": false,
+      "serialPostfix": "",
+      "version": "1.6.0",
+      "deviceEntityBlackList": {}
+    },
+    "schemaJson": {
+      "title": "Matterbridge hass plugin",
+      "description": "matterbridge-hass v. 1.6.0 by https://github.com/Luligu",
+      "type": "object",
+      "required": [
+        "host",
+        "token"
+      ],
+      "properties": {
+        "name": {
+          "title": "Plugin Name",
+          "description": "Plugin name",
+          "type": "string",
+          "readOnly": true,
+          "ui:widget": "hidden"
+        },
+        "type": {
+          "title": "Plugin Type",
+          "description": "Plugin type",
+          "type": "string",
+          "readOnly": true,
+          "ui:widget": "hidden"
+        },
+        "host": {
+          "title": "Host",
+          "description": "Home Assistant host (eg. ws://homeassistant.local:8123 or ws://homeassistant:8123 or ws://<IP-ADDRESS>:8123). For ssl connections use wss:// (eg. wss://homeassistant.local:8123) and enable rejectUnauthorized or provide certificatePath.",
+          "type": "string",
+          "default": "ws://homeassistant.local:8123"
+        },
+        "certificatePath": {
+          "title": "CA Certificate Path",
+          "description": "Fully qualified path to the SSL ca certificate file. This is only needed if you use a self-signed certificate and rejectUnauthorized is enabled.",
+          "type": "string"
+        },
+        "rejectUnauthorized": {
+          "title": "Reject Unauthorized",
+          "description": "Ignore SSL certificate errors. It allows to connect to Home Assistant with self-signed certificates.",
+          "type": "boolean",
+          "default": false
+        },
+        "token": {
+          "title": "Token",
+          "description": "Home Assistant Long-Lived Access Token",
+          "type": "string"
+        },
+        "reconnectTimeout": {
+          "title": "Reconnect Timeout",
+          "description": "Reconnect timeout in seconds (minimum 30 seconds). If the connection is lost, the plugin will try to reconnect after this timeout.",
+          "type": "number",
+          "default": 60
+        },
+        "reconnectRetries": {
+          "title": "Reconnect Retries",
+          "description": "Number of times to try to reconnect before giving up. Set to 0 for no reconnects.",
+          "type": "number",
+          "default": 10
+        },
+        "filterByArea": {
+          "title": "Filter By Area",
+          "description": "Filter devices and individual entities by area (use area name). If enabled, only devices and individual entities in the selected area will be exposed. If disabled, all devices and individual entities will be exposed.",
+          "type": "string",
+          "default": ""
+        },
+        "filterByLabel": {
+          "title": "Filter By Label",
+          "description": "Filter devices and individual entities by label (use label name). If enabled, only devices, device entities and individual entities with the selected label will be exposed. If disabled, all devices, device entities and individual entities will be exposed.",
+          "type": "string",
+          "default": ""
+        },
+        "whiteList": {
+          "title": "Whitelist",
+          "description": "Only the devices, individual entities and split entities in the list will be exposed. Use the name or the id. If the list is empty, all the devices, individual entities and split entities will be exposed.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "selectFrom": "name"
+        },
+        "blackList": {
+          "title": "Blacklist",
+          "description": "The devices, individual entities and split entities in the list will not be exposed. Use the name or the id. If the list is empty, no devices, individual entities and split entities will be excluded.",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "selectFrom": "name"
+        },
+        "deviceEntityBlackList": {
+          "title": "Device Entity Blacklist",
+          "description": "List of entities not to be exposed for a single device. Enter in the first field the name of the device and in the list add all the entity names you want to exclude for that device. This is only related to device entities, not individual entities or split entities.",
+          "type": "object",
+          "uniqueItems": true,
+          "selectFrom": "name",
+          "additionalProperties": {
+            "description": "List of entities not to be exposed for this device.",
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true,
+            "selectDeviceEntityFrom": "name"
+          }
+        },
+        "entityWhiteList": {
+          "title": "Domain Whitelist",
+          "description": "Only entities whose domain is listed here will be exposed. Leave this list empty to expose all domains. Enter the domain name (i.e. switch, light, sensor).",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "automation",
+              "scene",
+              "script",
+              "input_boolean",
+              "input_button",
+              "switch",
+              "light",
+              "lock",
+              "fan",
+              "cover",
+              "climate",
+              "valve",
+              "vacuum",
+              "sensor",
+              "binary_sensor",
+              "event",
+              "button",
+              "remote",
+              "select",
+              "input_select",
+              "media_player"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "entityBlackList": {
+          "title": "Domain Blacklist",
+          "description": "Entities whose domain is listed here will be excluded. Leave this list empty to exclude no domains. Enter the domain name (i.e. automation, scene, button).",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "automation",
+              "scene",
+              "script",
+              "input_boolean",
+              "input_button",
+              "switch",
+              "light",
+              "lock",
+              "fan",
+              "cover",
+              "climate",
+              "valve",
+              "vacuum",
+              "sensor",
+              "binary_sensor",
+              "event",
+              "button",
+              "remote",
+              "select",
+              "input_select",
+              "media_player"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "splitEntities": {
+          "title": "Split Entities (DEPRECATED: use Split By Label)",
+          "description": "The device entities in the list will be exposed like an independent device and removed from their device. Enter the entity_id (i.e. switch.computer_plug_child_lock). Split entities must satisfy the filters (if any) and the whiteList (if any).",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true,
+          "selectEntityFrom": "description"
+        },
+        "splitByLabel": {
+          "title": "Split By Label",
+          "description": "Split device entities by label (use label name). Split entities must satisfy the filters (if any) and the whiteList (if any).",
+          "type": "string",
+          "default": ""
+        },
+        "splitNameStrategy": {
+          "title": "Split Name Strategy",
+          "description": "Strategy used for split entity names. Entity name: use the entity name (i.e. Child Lock) if it exists, otherwise use the friendly name. Friendly name: use the friendly name (i.e. Computer Plug Child Lock) if it exists, otherwise use the entity name. You will lose the configuration of the devices in your controller when changing this value and you may need to pair again the controller.",
+          "type": "string",
+          "enum": [
+            "Entity name",
+            "Friendly name"
+          ],
+          "default": "Entity name"
+        },
+        "controllerStrategy": {
+          "title": "Controller Strategy",
+          "description": "Strategy used to expose multiple device types. 'Merge' combines non-overlapping device types on the main endpoint. 'Matter' creates a separate endpoint for each device type. Use the Merge strategy for legacy controllers. Changing this setting may require you to pair the controller again.",
+          "type": "string",
+          "enum": [
+            "Merge",
+            "Matter"
+          ],
+          "default": "Merge"
+        },
+        "namePostfix": {
+          "title": "Name Postfix",
+          "description": "Add this unique postfix (3 characters max) to each device name to avoid collision with other instances (you will lose the configuration of the devices in your controller when changing this value and you may need to pair again the controller).",
+          "type": "string",
+          "default": ""
+        },
+        "postfix": {
+          "title": "Serial Postfix",
+          "description": "Add this unique postfix (3 characters max) to each device serial to avoid collision with other instances (you will lose the configuration of the devices in your controller when changing this value and you may need to pair again the controller).",
+          "type": "string",
+          "default": ""
+        },
+        "airQualityRegex": {
+          "title": "Air Quality Regex",
+          "description": "Custom regex pattern to match not standard air quality sensors entities (e.g., '^sensor\\..*_air_quality$').",
+          "type": "string"
+        },
+        "enableServerRvc": {
+          "title": "Enable Server Rvc",
+          "description": "Enable the Robot Vacuum Cleaner in server mode (Apple Home will crash unless you use this mode!). Also filter out or blacklist any other entities related to the vacuum cleaner device to avoid Apple Home crashes.",
+          "type": "boolean",
+          "default": true
+        },
+        "discardHiddenEntities": {
+          "title": "Discard Hidden Entities",
+          "description": "Discard entities with 'hidden' attribute set to true. This will prevent the plugin from exposing entities that are hidden in Home Assistant.",
+          "type": "boolean",
+          "default": true
+        },
+        "virtualControlLabel": {
+          "title": "Virtual Control Label",
+          "description": "Label to activates virtual control commands on entities (use label name). If enabled, a virtual control will be created for each entity with the selected label. Virtual controls are used to send commands to entities that are not directly supported by the controller (e.g., media_player.apple_tv). Virtual controls will be exposed as switch entities and will trigger a command when turned on. The plugin will turn off the virtual control after the command is triggered.",
+          "type": "string",
+          "default": ""
+        },
+        "debug": {
+          "title": "Enable Debug",
+          "description": "Enable the debug for the plugin (development only)",
+          "type": "boolean",
+          "default": false
+        },
+        "unregisterOnShutdown": {
+          "title": "Unregister On Shutdown",
+          "description": "Unregister all devices on shutdown (development only)",
+          "type": "boolean",
+          "default": false,
+          "ui:widget": "hidden"
+        }
+      }
+    }
+  }
+]

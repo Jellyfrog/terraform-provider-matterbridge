@@ -1,0 +1,1 @@
+tofu import matterbridge_plugin.zigbee2mqtt matterbridge-zigbee2mqtt

@@ -1,0 +1,269 @@
+[
+  {
+    "plugin": "matterbridge-zigbee2mqtt",
+    "serialNumber": "0x00158d242647c8af",
+    "deviceName": "Coordinator",
+    "configUrl": "wifi",
+    "icon": "wifi"
+  },
+  {
+    "plugin": "matterbridge-zigbee2mqtt",
+    "serialNumber": "0x00158def7409c368",
+    "deviceName": "Hallway Motion Sensor",
+    "configUrl": "wifi",
+    "icon": "wifi",
+    "entities": [
+      {
+        "name": "temperature",
+        "description": "Measured temperature value"
+      },
+      {
+        "name": "occupancy",
+        "description": "Indicates whether the device detected occupancy"
+      },
+      {
+        "name": "battery",
+        "description": "Remaining battery in %, can take up to 24 hours before repor"
+      },
+      {
+        "name": "motion_sensitivity",
+        "description": "Select motion sensitivity to use"
+      },
+      {
+        "name": "led_indication",
+        "description": "Blink green LED on motion detection"
+      },
+      {
+        "name": "occupancy_timeout",
+        "description": ""
+      },
+      {
+        "name": "illuminance",
+        "description": "Measured illuminance. 0 = too low to be measured"
+      },
+      {
+        "name": "identify",
+        "description": "Initiate device identification. This device is asleep by def"
+      },
+      {
+        "name": "linkquality",
+        "description": "Link quality (signal strength)"
+      },
+      {
+        "name": "temperature_calibration",
+        "description": "Calibrates the temperature value (absolute offset), takes in"
+      },
+      {
+        "name": "temperature_precision",
+        "description": "Number of digits after decimal point for temperature, takes "
+      },
+      {
+        "name": "illuminance_calibration",
+        "description": "Calibrates the illuminance value (percentual offset), takes "
+      },
+      {
+        "name": "identify_timeout",
+        "description": "Sets the duration of the identification procedure in seconds"
+      },
+      {
+        "name": "no_occupancy_since",
+        "description": "Sends a message after the last time no occupancy (occupancy:"
+      },
+      {
+        "name": "illuminance_raw",
+        "description": "Expose the raw illuminance value."
+      }
+    ]
+  },
+  {
+    "plugin": "matterbridge-zigbee2mqtt",
+    "serialNumber": "0x00158d99b105f317",
+    "deviceName": "Office Window Light",
+    "configUrl": "wifi",
+    "icon": "wifi",
+    "entities": [
+      {
+        "name": "state",
+        "description": "On/off state of this light"
+      },
+      {
+        "name": "brightness",
+        "description": "Brightness of this light"
+      },
+      {
+        "name": "color_temp",
+        "description": "Color temperature of this light"
+      },
+      {
+        "name": "color_temp_startup",
+        "description": "Color temperature after cold power on of this light"
+      },
+      {
+        "name": "level_config",
+        "description": "Configure genLevelCtrl"
+      },
+      {
+        "name": "effect",
+        "description": "Triggers an effect on the light (e.g. make light blink for a"
+      },
+      {
+        "name": "power_on_behavior",
+        "description": "Controls the behavior when the device is powered on after po"
+      },
+      {
+        "name": "execute_if_off",
+        "description": "Controls whether color and color temperature can be set whil"
+      },
+      {
+        "name": "identify",
+        "description": "Initiate device identification"
+      },
+      {
+        "name": "linkquality",
+        "description": "Link quality (signal strength)"
+      },
+      {
+        "name": "transition",
+        "description": "Controls the transition time (in seconds) of on/off, brightn"
+      },
+      {
+        "name": "unfreeze_support",
+        "description": "Whether to unfreeze IKEA lights (that are known to be frozen"
+      },
+      {
+        "name": "color_sync",
+        "description": "When enabled colors will be synced, e.g. if the light suppor"
+      },
+      {
+        "name": "identify_timeout",
+        "description": "Sets the duration of the identification procedure in seconds"
+      },
+      {
+        "name": "state_action",
+        "description": "State actions will also be published as 'action' when true ("
+      }
+    ]
+  },
+  {
+    "plugin": "matterbridge-zigbee2mqtt",
+    "serialNumber": "0x00158d65e9c1875f",
+    "deviceName": "Office Ceiling",
+    "configUrl": "wifi",
+    "icon": "wifi",
+    "entities": [
+      {
+        "name": "state",
+        "description": "On/off state of this light"
+      },
+      {
+        "name": "brightness",
+        "description": "Brightness of this light"
+      },
+      {
+        "name": "level_config",
+        "description": "Configure genLevelCtrl"
+      },
+      {
+        "name": "effect",
+        "description": "Triggers an effect on the light (e.g. make light blink for a"
+      },
+      {
+        "name": "power_on_behavior",
+        "description": "Controls the behavior when the device is powered on after po"
+      },
+      {
+        "name": "identify",
+        "description": "Initiate device identification"
+      },
+      {
+        "name": "linkquality",
+        "description": "Link quality (signal strength)"
+      },
+      {
+        "name": "transition",
+        "description": "Controls the transition time (in seconds) of on/off, brightn"
+      },
+      {
+        "name": "identify_timeout",
+        "description": "Sets the duration of the identification procedure in seconds"
+      },
+      {
+        "name": "state_action",
+        "description": "State actions will also be published as 'action' when true ("
+      }
+    ]
+  },
+  {
+    "plugin": "matterbridge-zigbee2mqtt",
+    "serialNumber": "0x00158d5b02ff99d6",
+    "deviceName": "Living Room Lamp",
+    "configUrl": "wifi",
+    "icon": "wifi",
+    "entities": [
+      {
+        "name": "state",
+        "description": "On/off state of this light"
+      },
+      {
+        "name": "brightness",
+        "description": "Brightness of this light"
+      },
+      {
+        "name": "level_config",
+        "description": "Configure genLevelCtrl"
+      },
+      {
+        "name": "effect",
+        "description": "Triggers an effect on the light (e.g. make light blink for a"
+      },
+      {
+        "name": "power_on_behavior",
+        "description": "Controls the behavior when the device is powered on after po"
+      },
+      {
+        "name": "identify",
+        "description": "Initiate device identification"
+      },
+      {
+        "name": "linkquality",
+        "description": "Link quality (signal strength)"
+      },
+      {
+        "name": "transition",
+        "description": "Controls the transition time (in seconds) of on/off, brightn"
+      },
+      {
+        "name": "identify_timeout",
+        "description": "Sets the duration of the identification procedure in seconds"
+      },
+      {
+        "name": "state_action",
+        "description": "State actions will also be published as 'action' when true ("
+      }
+    ]
+  },
+  {
+    "plugin": "matterbridge-hass",
+    "serialNumber": "4a529897a79a33bba9344607d9bc2ba0",
+    "deviceName": "Hallway Bench Light",
+    "icon": "hub"
+  },
+  {
+    "plugin": "matterbridge-hass",
+    "serialNumber": "a51f9ddca114a20562a05f7bc2cf3fc9",
+    "deviceName": "Office Ceiling",
+    "icon": "hub"
+  },
+  {
+    "plugin": "matterbridge-hass",
+    "serialNumber": "870e95faedf376ffc2080bc36a3d520a",
+    "deviceName": "Café Fridge Plug",
+    "icon": "hub",
+    "entities": [
+      {
+        "name": "switch.olkyl_beer_fridge_light",
+        "description": "Beer Fridge Light"
+      }
+    ]
+  }
+]

@@ -1,0 +1,79 @@
+[
+  {
+    "plugin": "matterbridge-zigbee2mqtt",
+    "type": "DoorLock (0x000a)",
+    "number": 2,
+    "id": "Coordinator",
+    "deviceName": "Coordinator",
+    "serialNumber": "0x00158d242647c8af",
+    "productUrl": "https://matterbridge.io",
+    "configUrl": "http://localhost:8080/#/device/0x00158d242647c8af/info",
+    "uniqueId": "141ec7ad0fa6c1ecf1f4238099b67418",
+    "reachable": true,
+    "powerSource": "ac"
+  },
+  {
+    "plugin": "matterbridge-zigbee2mqtt",
+    "type": "DimmableLight (0x0101)",
+    "number": 3,
+    "id": "OfficeCeiling",
+    "deviceName": "Office Ceiling",
+    "serialNumber": "0x00158d65e9c1875f",
+    "productUrl": "https://matterbridge.io",
+    "configUrl": "http://localhost:8080/#/device/0x00158d65e9c1875f/info",
+    "uniqueId": "d9d3cd23c30e6515f1795a0e837b4014",
+    "reachable": false,
+    "powerSource": "ac"
+  },
+  {
+    "plugin": "matterbridge-zigbee2mqtt",
+    "type": "DimmableLight (0x0101)",
+    "number": 4,
+    "id": "LivingRoomLamp",
+    "deviceName": "Living Room Lamp",
+    "serialNumber": "0x00158d5b02ff99d6",
+    "productUrl": "https://matterbridge.io",
+    "configUrl": "http://localhost:8080/#/device/0x00158d5b02ff99d6/info",
+    "uniqueId": "2a973de676536b4ea0ae402bf6b7f091",
+    "reachable": true,
+    "powerSource": "ac"
+  },
+  {
+    "plugin": "matterbridge-zigbee2mqtt",
+    "type": "ColorTemperatureLight (0x010c)",
+    "number": 50,
+    "id": "OfficeWindowLight",
+    "deviceName": "Office Window Light",
+    "serialNumber": "0x00158d99b105f317",
+    "productUrl": "https://matterbridge.io",
+    "configUrl": "http://localhost:8080/#/device/0x00158d99b105f317/info",
+    "uniqueId": "195ef8eac48ae864d8517c387713afb8",
+    "reachable": true,
+    "powerSource": "ac"
+  },
+  {
+    "plugin": "matterbridge-zigbee2mqtt",
+    "type": "TemperatureSensor (0x0302)",
+    "number": 5,
+    "id": "HallwayMotionSensor",
+    "deviceName": "Hallway Motion Sensor",
+    "serialNumber": "0x00158def7409c368",
+    "productUrl": "https://matterbridge.io",
+    "configUrl": "http://localhost:8080/#/device/0x00158def7409c368/info",
+    "uniqueId": "cbc2cd817b229cb3268c6701d2145265",
+    "reachable": false,
+    "powerSource": "ok"
+  },
+  {
+    "plugin": "matterbridge-hass",
+    "type": "BridgedNode (0x0013)",
+    "number": 39,
+    "id": "Café Fridge Plug",
+    "deviceName": "Café Fridge Plug",
+    "serialNumber": "870e95faedf376ffc2080bc36a3d520a",
+    "productUrl": "https://matterbridge.io",
+    "configUrl": "http://homeassistant.local:8123/config/devices/device/b1c45f02be95611a664f4a708daaeaa5",
+    "uniqueId": "6cba9b47a0849724b8f89acee60caa57",
+    "reachable": false
+  }
+]

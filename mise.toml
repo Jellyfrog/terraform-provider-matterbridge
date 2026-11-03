@@ -1,0 +1,3 @@
+[tools]
+goreleaser = "2.18.2"
+opentofu = "1.13.2"
