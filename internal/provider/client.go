@@ -158,8 +158,15 @@ func (c *Client) read(conn *websocket.Conn) {
 		}
 		c.mu.Unlock()
 	}
+	c.closeConn(conn)
+}
+
+// closeConn closes a connection. If it is the current connection, the client forgets it at once, so that the
+// next request connects again, and the requests that wait for an answer fail with errClosed.
+func (c *Client) closeConn(conn *websocket.Conn) {
 	_ = conn.Close()
 	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.conn == conn {
 		c.conn = nil
 		for id, ch := range c.pending {
@@ -167,7 +174,6 @@ func (c *Client) read(conn *websocket.Conn) {
 			delete(c.pending, id)
 		}
 	}
-	c.mu.Unlock()
 }
 
 // preferPassword puts the password that works first, also for later connections. The caller holds c.mu.
@@ -258,7 +264,7 @@ func (c *Client) send(ctx context.Context, method string, params map[string]any,
 		c.mu.Lock()
 		delete(c.pending, id)
 		c.mu.Unlock()
-		_ = conn.Close()
+		c.closeConn(conn)
 		return id, nil, fmt.Errorf("%s: %w", method, errClosed)
 	}
 	return id, ch, nil
@@ -492,8 +498,20 @@ func (c *Client) npm(ctx context.Context, command, packageName, success, failure
 	}
 }
 
+// restartPhase is where a restart of Matterbridge is.
+type restartPhase int
+
+const (
+	// restartStopping: the old process still answers, with the old startupAt.
+	restartStopping restartPhase = iota
+	// restartStarting: Matterbridge does not answer.
+	restartStarting
+	// restartLoading: the new process answers, but some enabled plugins have not started.
+	restartLoading
+)
+
 // Restart restarts Matterbridge and waits until it is back with its plugins. HomeKit and other controllers lose
-// the devices during the restart.
+// the devices during the restart. If it does not finish in RestartTimeout, the error tells the phase.
 func (c *Client) Restart(ctx context.Context) error {
 	c.gate.Lock()
 	defer c.gate.Unlock()
@@ -506,36 +524,54 @@ func (c *Client) Restart(ctx context.Context) error {
 	if _, _, err := c.send(ctx, "/api/restart", nil, false); err != nil {
 		return err
 	}
-	deadline := time.Now().Add(c.cfg.RestartTimeout)
+	phase, waiting := restartStopping, []string(nil)
+	timeout := time.After(c.cfg.RestartTimeout)
 	for {
-		if time.Now().After(deadline) {
-			return fmt.Errorf("Matterbridge did not start again in %s after the restart", c.cfg.RestartTimeout)
-		}
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
+		case <-timeout:
+			return fmt.Errorf("Matterbridge did not start again in %s after the restart: %s", c.cfg.RestartTimeout, phase.describe(waiting))
 		case <-time.After(c.cfg.PollInterval):
 		}
 		info, err := c.settings(ctx, c.callOnce)
-		if errors.Is(err, errRejected) {
+		switch {
+		case errors.Is(err, errRejected):
 			return err
-		}
-		if err != nil {
+		case err != nil:
+			phase = restartStarting
 			continue
-		}
-		if fmt.Sprint(info["startupAt"]) == startup {
+		case fmt.Sprint(info["startupAt"]) == startup:
 			// The old process still answers. Close, so that the next try connects to the new process.
+			phase = restartStopping
 			c.dropConnection()
 			continue
 		}
 		var plugins []Plugin
 		if err := c.callOnce(ctx, "/api/plugins", nil, &plugins); err != nil {
+			phase = restartStarting
 			continue
 		}
-		if !slices.ContainsFunc(plugins, func(p Plugin) bool { return p.Enabled && !p.Error && !(p.Started && p.Configured) }) {
+		phase, waiting = restartLoading, nil
+		for _, p := range plugins {
+			if p.Enabled && !p.Error && !(p.Started && p.Configured) {
+				waiting = append(waiting, p.Name)
+			}
+		}
+		if len(waiting) == 0 {
 			return nil
 		}
 	}
+}
+
+func (p restartPhase) describe(waiting []string) string {
+	switch p {
+	case restartStopping:
+		return "the old process still answered"
+	case restartStarting:
+		return "Matterbridge did not answer"
+	}
+	return "these plugins did not start: " + strings.Join(waiting, ", ")
 }
 
 func (c *Client) dropConnection() {
@@ -543,6 +579,6 @@ func (c *Client) dropConnection() {
 	conn := c.conn
 	c.mu.Unlock()
 	if conn != nil {
-		_ = conn.Close()
+		c.closeConn(conn)
 	}
 }

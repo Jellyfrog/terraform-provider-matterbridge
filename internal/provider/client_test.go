@@ -134,3 +134,70 @@ func TestClientInstallAndRestart(t *testing.T) {
 		t.Fatalf("calls: %v", server.Calls())
 	}
 }
+
+func TestClientRestartTimeoutTellsPhase(t *testing.T) {
+	server := startFake(t, fakematterbridge.Options{RestartDelay: 5 * time.Second})
+	c, err := NewClient(ClientConfig{URL: server.URL, Timeout: time.Second, RestartTimeout: 500 * time.Millisecond, PollInterval: 50 * time.Millisecond})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(c.Close)
+	err = c.Restart(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "Matterbridge did not answer") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+// A read survives a dropped connection: the client connects again and sends the read again.
+func TestClientReconnects(t *testing.T) {
+	server := startFake(t, fakematterbridge.Options{})
+	c := testClient(t, server)
+	ctx := context.Background()
+	for i := range 5 {
+		server.DropConnections()
+		if _, err := c.Plugins(ctx); err != nil {
+			t.Fatalf("read %d after a dropped connection: %v", i, err)
+		}
+	}
+	// A change is not sent again, but it must not hang: it succeeds on a new connection, or fails as closed.
+	server.DropConnections()
+	if err := c.SetConfig(ctx, "setmbloglevel", "Info"); err != nil && !errors.Is(err, errClosed) {
+		t.Fatalf("change after a dropped connection: %v", err)
+	}
+}
+
+// npm waits for the snackbar of its own package, and times out without one.
+func TestClientNpm(t *testing.T) {
+	server := startFake(t, fakematterbridge.Options{InstallDelay: 200 * time.Millisecond})
+	c := testClient(t, server)
+	ctx := context.Background()
+	// Two installs at the same time: each gets the result for its own package.
+	errs := make(chan error, 2)
+	go func() { errs <- c.Install(ctx, fakematterbridge.Hass+"@1.5.0") }()
+	go func() { errs <- c.Install(ctx, fakematterbridge.Shelly+"@9.9.9") }()
+	var failures []string
+	for range 2 {
+		if err := <-errs; err != nil {
+			failures = append(failures, err.Error())
+		}
+	}
+	if len(failures) != 1 || !strings.Contains(failures[0], fakematterbridge.Shelly+"@9.9.9 failed") {
+		t.Fatalf("failures: %v", failures)
+	}
+	if server.Installed(fakematterbridge.Hass) != "1.5.0" {
+		t.Fatalf("hass on disk: %s", server.Installed(fakematterbridge.Hass))
+	}
+	if err := c.Uninstall(ctx, fakematterbridge.Hass); err != nil || server.Installed(fakematterbridge.Hass) != "" {
+		t.Fatalf("uninstall: %v", err)
+	}
+
+	slow := startFake(t, fakematterbridge.Options{InstallDelay: 2 * time.Second})
+	sc, err := NewClient(ClientConfig{URL: slow.URL, Timeout: time.Second, RestartTimeout: 300 * time.Millisecond})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(sc.Close)
+	if err := sc.Install(ctx, fakematterbridge.Hass); err == nil || !strings.Contains(err.Error(), "did not finish") {
+		t.Fatalf("slow npm: %v", err)
+	}
+}

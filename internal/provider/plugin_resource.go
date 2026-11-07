@@ -188,18 +188,11 @@ func (r *pluginResource) ModifyPlan(ctx context.Context, req resource.ModifyPlan
 		resp.Diagnostics.AddError("Cannot read the Matterbridge plugins", err.Error())
 		return
 	}
-	if p == nil {
-		resp.Diagnostics.AddWarning("This apply restarts Matterbridge",
-			fmt.Sprintf("Matterbridge does not have %s. The apply installs it with npm, adds it and restarts Matterbridge. HomeKit and other controllers lose the devices for some time.", name))
-		return
-	}
-	if !plan.Version.IsUnknown() && !plan.Version.IsNull() && plan.Version.ValueString() != p.Version {
-		resp.Diagnostics.AddWarning("This apply restarts Matterbridge",
-			fmt.Sprintf("The apply installs %s@%s (now %s) and restarts Matterbridge. HomeKit and other controllers lose the devices for some time.", name, plan.Version.ValueString(), p.Version))
-	}
 	config, sensitive, err := plan.managedConfig()
-	if err != nil {
-		return // unknown values: the apply checks again
+	if p == nil || err != nil {
+		// A new plugin has no schema yet. With unknown values, the apply checks again.
+		r.warnRestart(ctx, p, &plan, nil, &resp.Diagnostics)
+		return
 	}
 	for _, k := range sortedKeys(config) {
 		// ValidateConfig already reported the fixed secret keys.
@@ -255,43 +248,23 @@ func (r *pluginResource) ModifyPlan(ctx context.Context, req resource.ModifyPlan
 		resp.Diagnostics.AddAttributeWarning(path.Root("config"), "Unknown devices or features",
 			name+" does not offer these devices or features now (/api/select/devices). Check the names. A device that is offline can also be missing:\n  "+strings.Join(warnings, "\n  "))
 	}
-	if !configMatches(p.ConfigJSON, managed) && plan.Enabled.ValueBool() && p.Enabled {
-		restart, bridgeMode, err := r.restartMode(ctx, plan.Restart.ValueString())
-		if err != nil {
-			resp.Diagnostics.AddError("Cannot read the Matterbridge settings", err.Error())
-			return
-		}
-		switch {
-		case restart == restartPlugin && bridgeMode:
-			resp.Diagnostics.AddWarning("restart = \"plugin\" in bridge mode",
-				"The config of "+name+" changes, and the apply restarts the plugin. In bridge mode, Matterbridge 3.11 does not register the devices of the plugin again after a plugin restart, "+
-					"and HomeKit and other controllers lose them. If the plugin has no devices after the restart, the apply restarts Matterbridge. Use restart = \"auto\" to restart Matterbridge at once.")
-		case restart == restartPlugin:
-			resp.Diagnostics.AddWarning("This apply restarts "+name, "The config changes. The apply restarts the plugin. Its devices are not available for some seconds. The other plugins continue.")
-		case restart == restartMatterbridge:
-			resp.Diagnostics.AddWarning("This apply restarts Matterbridge", "The config of "+name+" changes. HomeKit and other controllers lose the devices for some time.")
-		}
-	}
+	r.warnRestart(ctx, p, &plan, managed, &resp.Diagnostics)
 }
 
-// restartMode returns the restart for a config change: auto becomes matterbridge in bridge mode and plugin in
-// childbridge mode. bridgeMode is true if Matterbridge is in bridge mode.
-func (r *pluginResource) restartMode(ctx context.Context, restart string) (string, bool, error) {
-	if restart != restartAuto && restart != restartPlugin {
-		return restart, false, nil
-	}
-	info, err := r.client.Settings(ctx)
+// warnRestart adds the plan warning for what the apply restarts.
+func (r *pluginResource) warnRestart(ctx context.Context, p *Plugin, plan *pluginModel, managed map[string]any, diags *diag.Diagnostics) {
+	changes, err := r.decide(ctx, p, plan, managed)
 	if err != nil {
-		return "", false, err
+		diags.AddError("Cannot read the Matterbridge settings", err.Error())
+		return
 	}
-	bridgeMode := info["bridgeMode"] != "childbridge"
-	if restart == restartAuto {
-		restart = restartPlugin
-		if bridgeMode {
-			restart = restartMatterbridge
-		}
+	version := ""
+	if p != nil {
+		version = p.Version
 	}
-	return restart, bridgeMode, nil
+	if summary, detail := changes.warning(plan.Name.ValueString(), version); summary != "" {
+		diags.AddWarning(summary, detail)
+	}
 }
 
 // nextConfig returns the configJson to save: the current config with the managed keys. name and type must be
@@ -358,47 +331,44 @@ func (r *pluginResource) selectionWarnings(ctx context.Context, p *Plugin, confi
 func (r *pluginResource) apply(ctx context.Context, plan *pluginModel, state *tfsdk.State, diags *diag.Diagnostics) {
 	defer r.client.Lock()()
 	name := plan.Name.ValueString()
-	p, err := r.client.Plugin(ctx, name)
-	if err != nil {
-		diags.AddError("Cannot read the Matterbridge plugins", err.Error())
-		return
-	}
-	want := ""
-	if !plan.Version.IsNull() && !plan.Version.IsUnknown() {
-		want = plan.Version.ValueString()
-	}
-	fullRestart := false
-	if p == nil || (want != "" && want != p.Version) {
-		pkg := name
-		if want != "" {
-			pkg += "@" + want
-		}
-		if err := r.client.Install(ctx, pkg); err != nil {
-			diags.AddError("Cannot install "+pkg, err.Error())
-			return
-		}
-		if p == nil {
-			if err := r.client.Call(ctx, "/api/addplugin", map[string]any{"pluginNameOrPath": name}, nil); err != nil {
-				diags.AddError("Cannot add "+name, err.Error())
-				return
-			}
-			if p, err = r.client.Plugin(ctx, name); err != nil || p == nil {
-				diags.AddError("Cannot add "+name, fmt.Sprintf("Matterbridge does not show the plugin after /api/addplugin (%v).", err))
-				return
-			}
-		}
-		fullRestart = true
-	}
-
 	config, sensitive, err := plan.managedConfig()
 	if err != nil {
 		diags.AddError("Incorrect config", err.Error())
 		return
 	}
 	managed := merged(config, sensitive)
-	configChanged := !configMatches(p.ConfigJSON, managed)
-	wasEnabled, devicesBefore := p.Enabled, p.RegisteredDevices
-	if configChanged {
+	p, err := r.client.Plugin(ctx, name)
+	if err != nil {
+		diags.AddError("Cannot read the Matterbridge plugins", err.Error())
+		return
+	}
+	changes, err := r.decide(ctx, p, plan, managed)
+	if err != nil {
+		diags.AddError("Cannot read the Matterbridge settings", err.Error())
+		return
+	}
+	devicesBefore := int64(0)
+	if p != nil {
+		devicesBefore = p.RegisteredDevices
+	}
+
+	if changes.Install != "" {
+		if err := r.client.Install(ctx, changes.Install); err != nil {
+			diags.AddError("Cannot install "+changes.Install, err.Error())
+			return
+		}
+	}
+	if changes.Add {
+		if err := r.client.Call(ctx, "/api/addplugin", map[string]any{"pluginNameOrPath": name}, nil); err != nil {
+			diags.AddError("Cannot add "+name, err.Error())
+			return
+		}
+		if p, err = r.client.Plugin(ctx, name); err != nil || p == nil {
+			diags.AddError("Cannot add "+name, fmt.Sprintf("Matterbridge does not show the plugin after /api/addplugin (%v).", err))
+			return
+		}
+	}
+	if changes.SaveConfig && !configMatches(p.ConfigJSON, managed) {
 		if err := r.client.Call(ctx, "/api/savepluginconfig", map[string]any{"pluginName": name, "formData": nextConfig(p, managed)}, nil); err != nil {
 			diags.AddError("Cannot save the config of "+name, err.Error())
 			return
@@ -409,13 +379,9 @@ func (r *pluginResource) apply(ctx context.Context, plan *pluginModel, state *tf
 			return
 		}
 	}
-	// p is current, unless a later step changes the plugin.
-	stale := fullRestart
-	enabled := plan.Enabled.ValueBool()
-	if enabled != wasEnabled {
-		stale = true
+	if changes.SetEnabled {
 		method := "/api/disableplugin"
-		if enabled {
+		if plan.Enabled.ValueBool() {
 			method = "/api/enableplugin" // it loads the plugin with the new config
 		}
 		if err := r.client.Call(ctx, method, map[string]any{"pluginName": name}, nil); err != nil {
@@ -423,24 +389,13 @@ func (r *pluginResource) apply(ctx context.Context, plan *pluginModel, state *tf
 			return
 		}
 	}
-	// A plugin that was disabled, or that enable loaded just now, already runs with the new config.
-	needsRestart := configChanged && enabled && wasEnabled
-	restart := plan.Restart.ValueString()
-	if needsRestart {
-		if restart, _, err = r.restartMode(ctx, restart); err != nil {
-			diags.AddError("Cannot read the Matterbridge settings", err.Error())
-			return
-		}
-	}
-	switch {
-	case fullRestart || (needsRestart && restart == restartMatterbridge):
-		stale = true
+	switch changes.Restart {
+	case restartAll:
 		if err := r.client.Restart(ctx); err != nil {
 			diags.AddError("Matterbridge restart failed", err.Error())
 			return
 		}
-	case needsRestart && restart == restartPlugin:
-		stale = true
+	case restartThePlugin:
 		if err := r.client.Call(ctx, "/api/restartplugin", map[string]any{"pluginName": name}, nil); err != nil {
 			diags.AddError("Cannot restart "+name, "The config is saved, but the plugin did not restart: "+err.Error())
 			return
@@ -453,18 +408,19 @@ func (r *pluginResource) apply(ctx context.Context, plan *pluginModel, state *tf
 				return
 			}
 		}
-	case needsRestart:
+	case restartLater:
 		diags.AddWarning("Restart required", "The config of "+name+" is saved. It applies when the plugin or Matterbridge restarts.")
 	}
 
-	if stale {
+	// p is current after the save, unless a later step changed the plugin.
+	if changes.Install != "" || changes.SetEnabled || changes.Restart == restartAll || changes.Restart == restartThePlugin {
 		if p, err = r.client.Plugin(ctx, name); err != nil || p == nil {
 			diags.AddError("Cannot read "+name, fmt.Sprintf("Matterbridge does not show the plugin (%v).", err))
 			return
 		}
 	}
-	if want != "" && p.Version != want {
-		diags.AddError("Version not installed", fmt.Sprintf("Matterbridge shows %s %s after the install of %s.", name, p.Version, want))
+	if want := plan.Version; !want.IsNull() && !want.IsUnknown() && p.Version != want.ValueString() {
+		diags.AddError("Version not installed", fmt.Sprintf("Matterbridge shows %s %s after the install of %s.", name, p.Version, want.ValueString()))
 		return
 	}
 	plan.ID = types.StringValue(name)

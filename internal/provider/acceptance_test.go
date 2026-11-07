@@ -95,6 +95,30 @@ func expectPluginConfig(server *fakematterbridge.Server, plugin, key string, wan
 	})
 }
 
+// stepCalls counts the changing requests of one step. Call reset in PreConfig.
+type stepCalls struct {
+	server *fakematterbridge.Server
+	before fakematterbridge.Calls
+}
+
+func (c *stepCalls) reset() { c.before = c.server.Calls() }
+
+// expect checks the calls of the step. A method that is not in want must have no calls.
+func (c *stepCalls) expect(want map[string]int) resource.TestCheckFunc {
+	return serverCheck(func() error {
+		got := map[string]int{}
+		for method, n := range c.server.Calls() {
+			if d := n - c.before[method]; d != 0 {
+				got[method] = d
+			}
+		}
+		if !reflect.DeepEqual(got, want) {
+			return fmt.Errorf("calls of the step: got %v, want %v", got, want)
+		}
+		return nil
+	})
+}
+
 func mustDo(t *testing.T, server *fakematterbridge.Server, method string, params map[string]any) {
 	t.Helper()
 	if err := server.Do(method, params); err != nil {
@@ -104,6 +128,7 @@ func mustDo(t *testing.T, server *fakematterbridge.Server, method string, params
 
 func TestAccSettings(t *testing.T) {
 	server := accServer(t, fakematterbridge.Options{})
+	step := &stepCalls{server: server}
 	config := func(password, body string) string {
 		return accProvider(server, password) + `
 resource "matterbridge_settings" "this" {
@@ -122,6 +147,10 @@ resource "matterbridge_settings" "this" {
 				ExpectError: regexp.MustCompile(`matter_passcode`),
 			},
 			{
+				Config:      config("", `password_wo = "x"`),
+				ExpectError: regexp.MustCompile(`Missing password_wo_version`),
+			},
+			{
 				// Only the log level: no restart.
 				Config: config("", `mb_log_level = "debug"`),
 				Check: resource.ComposeTestCheckFunc(
@@ -133,6 +162,17 @@ resource "matterbridge_settings" "this" {
 					expectCalls(server, "/api/config setmbloglevel", 1),
 					expectCalls(server, "/api/restart", 0),
 				),
+			},
+			{
+				// The same configuration: an empty plan.
+				Config:   config("", `mb_log_level = "debug"`),
+				PlanOnly: true,
+			},
+			{
+				// A setting that has its current value sends nothing, also with a new attribute.
+				PreConfig: step.reset,
+				Config:    config("", `mb_log_level = "debug"`+"\n"+`matter_port = 5540`),
+				Check:     step.expect(map[string]int{}),
 			},
 			{
 				Config: config("", `
@@ -177,7 +217,11 @@ resource "matterbridge_settings" "this" {
   password_wo         = "s3cret-pw"
   password_wo_version = "1"`),
 				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction("matterbridge_settings.this", plancheck.ResourceActionUpdate)}},
-				Check:            expectInfo(server, "loggerLevel", "debug"),
+				Check: resource.ComposeTestCheckFunc(
+					expectInfo(server, "loggerLevel", "debug"),
+					// The password version did not change, so the password is not sent again.
+					expectCalls(server, "/api/config setpassword", 1),
+				),
 			},
 			{
 				// A new password, with the old password for the connection.
@@ -258,6 +302,7 @@ resource "matterbridge_plugin" "z2m" {
 ` + body + `
 }`
 	}
+	step := &stepCalls{server: server}
 	whiteList := `["Office Ceiling", "Hallway Motion Sensor"]`
 	features := `{ "Hallway Motion Sensor" = ["illuminance", "temperature"] }`
 	resource.Test(t, resource.TestCase{
@@ -311,6 +356,15 @@ resource "matterbridge_plugin" "z2m" {
 					expectPluginConfig(server, fakematterbridge.Zigbee2MQTT, "topic", "zigbee2mqtt"),
 					resource.TestCheckResourceAttr("matterbridge_plugin.z2m", "version", "3.3.0"),
 				),
+			},
+			{
+				// A key that comes back with its current value, and a key that moves to sensitive_config: the plan
+				// changes the state, but the apply sends nothing.
+				PreConfig: step.reset,
+				Config: z2m(`config = { whiteList = ` + whiteList + `, topic = "zigbee2mqtt" }` + "\n" +
+					`sensitive_config = { username = "matterbridge" }`),
+				ConfigPlanChecks: resource.ConfigPlanChecks{PreApply: []plancheck.PlanCheck{plancheck.ExpectResourceAction("matterbridge_plugin.z2m", plancheck.ResourceActionUpdate)}},
+				Check:            step.expect(map[string]int{}),
 			},
 			{
 				// A person changes the white list in the frontend. The plan changes it back.
@@ -371,6 +425,22 @@ resource "matterbridge_plugin" "z2m" {
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttr("matterbridge_plugin.z2m", "enabled", "false"),
 					expectCalls(server, "/api/disableplugin", 1),
+				),
+			},
+			{
+				// A config change while disabled: save only. The plugin is not running, so nothing restarts.
+				PreConfig: step.reset,
+				Config:    z2m(`enabled = false` + "\n" + `config = { whiteList = ["Office Ceiling"] }`),
+				Check:     step.expect(map[string]int{"/api/savepluginconfig": 1}),
+			},
+			{
+				// Enable with a config change: enable loads the new config, so there is no restart.
+				PreConfig: step.reset,
+				Config:    z2m(`config = { whiteList = ` + whiteList + ` }`),
+				Check: resource.ComposeTestCheckFunc(
+					step.expect(map[string]int{"/api/savepluginconfig": 1, "/api/enableplugin": 1}),
+					resource.TestCheckResourceAttr("matterbridge_plugin.z2m", "enabled", "true"),
+					resource.TestCheckResourceAttr("matterbridge_plugin.z2m", "registered_devices", "29"),
 				),
 			},
 		},

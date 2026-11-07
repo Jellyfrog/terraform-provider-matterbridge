@@ -701,6 +701,15 @@ func (s *Server) Do(method string, params map[string]any) error {
 	}
 }
 
+// DropConnections closes all WebSocket connections, as a network problem does. The server stays up.
+func (s *Server) DropConnections() {
+	s.connMu.Lock()
+	defer s.connMu.Unlock()
+	for c := range s.conns {
+		_ = c.Close()
+	}
+}
+
 // SetBridgeMode changes the bridge mode at once, as a restart after setbridgemode does.
 func (s *Server) SetBridgeMode(mode string) {
 	s.mu.Lock()
