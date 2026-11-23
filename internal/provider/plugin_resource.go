@@ -359,13 +359,22 @@ func (r *pluginResource) apply(ctx context.Context, plan *pluginModel, state *tf
 		}
 	}
 	if changes.Add {
-		if err := r.client.Call(ctx, "/api/addplugin", map[string]any{"pluginNameOrPath": name}, nil); err != nil {
-			diags.AddError("Cannot add "+name, err.Error())
+		// Matterbridge 3.11 adds and loads a plugin itself after npm installed it, some milliseconds after the
+		// snackbar that ends Install. Then /api/addplugin fails ("Plugin ... not added"), so the apply adds the
+		// plugin only if Matterbridge did not.
+		if p, err = r.waitAdded(ctx, name); err != nil {
+			diags.AddError("Cannot read the Matterbridge plugins", err.Error())
 			return
 		}
-		if p, err = r.client.Plugin(ctx, name); err != nil || p == nil {
-			diags.AddError("Cannot add "+name, fmt.Sprintf("Matterbridge does not show the plugin after /api/addplugin (%v).", err))
-			return
+		if p == nil {
+			if err := r.client.Call(ctx, "/api/addplugin", map[string]any{"pluginNameOrPath": name}, nil); err != nil {
+				diags.AddError("Cannot add "+name, err.Error())
+				return
+			}
+			if p, err = r.client.Plugin(ctx, name); err != nil || p == nil {
+				diags.AddError("Cannot add "+name, fmt.Sprintf("Matterbridge does not show the plugin after /api/addplugin (%v).", err))
+				return
+			}
 		}
 	}
 	if changes.SaveConfig && !configMatches(p.ConfigJSON, managed) {
@@ -451,6 +460,29 @@ func (r *pluginResource) waitConfig(ctx context.Context, name string, managed ma
 }
 
 // waitRegistered waits until the plugin has registered devices. It returns false if it has none after the timeout.
+// waitAdded waits until Matterbridge has added and loaded the plugin (loading reads its configJson). It returns
+// nil if Matterbridge did not add the plugin in some seconds.
+func (r *pluginResource) waitAdded(ctx context.Context, name string) (*Plugin, error) {
+	added := time.Now().Add(5 * time.Second)
+	loaded := time.Now().Add(r.client.cfg.Timeout)
+	for {
+		p, err := r.client.Plugin(ctx, name)
+		switch {
+		case err != nil || (p != nil && p.Loaded):
+			return p, err
+		case p == nil && time.Now().After(added):
+			return nil, nil
+		case p != nil && time.Now().After(loaded):
+			return p, nil
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(250 * time.Millisecond):
+		}
+	}
+}
+
 func (r *pluginResource) waitRegistered(ctx context.Context, name string) bool {
 	timeout := time.After(r.client.cfg.Timeout)
 	for {

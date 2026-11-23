@@ -42,7 +42,7 @@ Destroy does not change the settings. Import: `tofu import matterbridge_settings
 
 - `name`: the npm package. If you change it, OpenTofu replaces the resource.
 - `version`: if it is different from the installed version, the apply runs `npm install <name>@<version>` (also for an older version), and restarts Matterbridge. Matterbridge shows a new version only after a restart. If you do not set `version`, the attribute shows the installed version.
-- If Matterbridge does not have the plugin, the apply installs it, adds it (`/api/addplugin`), saves the config and restarts Matterbridge.
+- If Matterbridge does not have the plugin, the apply installs it, saves the config and restarts Matterbridge. After npm installed a plugin, Matterbridge 3.11 adds and loads it itself. The apply waits for this, and uses `/api/addplugin` only if Matterbridge did not add the plugin.
 - `enabled` (default `true`).
 - `config`: the plugin config (`configJson`) as an object. The provider manages only the top-level keys that you write. It compares each value as a whole, also lists and objects such as `whiteList` and `deviceFeatureBlackList`. To save, the provider reads the current config, sets the managed keys and sends the full config (`/api/savepluginconfig`). Other keys do not change. If you remove a key, the provider stops managing it, and Matterbridge keeps the value. You cannot set `name`, `type` and `version`. Matterbridge sets them.
 - `sensitive_config`: more keys with string values, but OpenTofu does not show them. Put the secrets here, for example `{ password = var.mqtt_password }` for zigbee2mqtt and `{ token = var.ha_token }` for hass. The plan fails if `config` contains `password`, `token`, `key` or a setting that the plugin schema shows as a password. `sensitive_config` is a map of strings and not dynamic, because OpenTofu writes dynamic values of the state to its debug log.
@@ -86,14 +86,19 @@ go test ./...           # unit tests with a fake Matterbridge in the same proces
 
 # Acceptance tests: OpenTofu from mise with the fake Matterbridge
 TF_ACC=1 go test ./internal/provider -run TestAcc -v
+
+# Acceptance tests with a real Matterbridge in Docker (they need Docker and npm)
+TF_ACC=1 TF_ACC_DOCKER=1 go test ./internal/provider -run TestAccDocker -v
 ```
+
+`internal/realmb` starts a real Matterbridge (`luligu/matterbridge`, the tag is `MATTERBRIDGE_IMAGE_TAG`, default 3.11.0) with testcontainers-go, one container for each test. `TestAccDockerSettings` changes settings, restarts Matterbridge and sets the password. `TestAccDockerPlugin` installs `matterbridge-example-dynamic-platform` from npm, changes its config, imports it and removes it. If a test fails, the test log gets the log of Matterbridge (set `REALMB_LOGS=1` to get it always). If `HTTPS_PROXY` is a proxy on this computer, the container uses the network of the host and the proxy. matter.js needs IPv6. If the kernel of the host has no IPv6, the harness preloads `internal/realmb/noipv6.cjs`, which changes the IPv6 sockets to IPv4 sockets. Matter controllers cannot use Matterbridge then, but the frontend works. CI (`.github/workflows/test.yml`) runs these tests in the job `docker`.
 
 `internal/fakematterbridge` serves the WebSocket API as Matterbridge 3.11.0 does. Its plugins have the configJson and schemaJson of matterbridge-zigbee2mqtt 3.3.0 and matterbridge-hass 1.6.0. Its devices are made up. It has the same quirks as Matterbridge:
 
 - The WebSocket password must be exactly the frontend password, also if it is empty.
 - Some `/api/config` names do not answer an incorrect value. `setmatterport` and the other numbers need strings.
 - `/api/savepluginconfig` answers before the config changes.
-- `/api/install` answers at once. A snackbar broadcast tells when npm is done.
+- `/api/install` answers at once. A snackbar broadcast tells when npm is done. After npm, Matterbridge adds a new plugin itself (then `/api/addplugin` fails), and removes an uninstalled plugin.
 - `/api/plugins` shows a new version only after `/api/restart`. `setbridgemode` applies only after a restart.
 - `/api/restart` drops the connections without an answer, and the server is down for a short time.
 - In bridge mode, `/api/restartplugin` leaves the plugin with no registered devices until `/api/restart`.

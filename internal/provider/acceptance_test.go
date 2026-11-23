@@ -28,6 +28,12 @@ func accServer(t *testing.T, opts fakematterbridge.Options) *fakematterbridge.Se
 	if os.Getenv("TF_ACC") == "" {
 		t.Skip("set TF_ACC=1 to run acceptance tests")
 	}
+	accEnv(t)
+	return startFake(t, opts)
+}
+
+// accEnv sets the environment of terraform-plugin-testing: tofu, and the registry address of the provider.
+func accEnv(t *testing.T) {
 	if os.Getenv("TF_ACC_TERRAFORM_PATH") == "" {
 		out, err := exec.Command("mise", "which", "tofu").Output()
 		if err != nil {
@@ -41,7 +47,6 @@ func accServer(t *testing.T, opts fakematterbridge.Options) *fakematterbridge.Se
 	if os.Getenv("TF_ACC_PROVIDER_NAMESPACE") == "" {
 		t.Setenv("TF_ACC_PROVIDER_NAMESPACE", "jellyfrog")
 	}
-	return startFake(t, opts)
 }
 
 var accFactories = map[string]func() (tfprotov6.ProviderServer, error){
@@ -524,7 +529,8 @@ resource "matterbridge_plugin" "shelly" {
 					resource.TestCheckResourceAttr("matterbridge_plugin.shelly", "latest_version", "2.1.0"),
 					expectPluginConfig(server, fakematterbridge.Shelly, "password", "shelly-pw"),
 					expectPluginConfig(server, fakematterbridge.Shelly, "username", "admin"),
-					expectCalls(server, "/api/addplugin", 1),
+					// Matterbridge 3.11 adds the plugin itself after npm installed it.
+					expectCalls(server, "/api/addplugin", 0),
 					expectCalls(server, "/api/restart", 1),
 					expectCalls(server, "/api/restartplugin", 0),
 				),

@@ -1,5 +1,8 @@
-# Builds the provider and runs the unit and acceptance tests for each push and pull request. The acceptance tests
-# run OpenTofu against the fake Matterbridge in internal/fakematterbridge, so they need no Matterbridge.
+# Builds the provider and runs the tests for each push and pull request.
+#   - test: the unit tests, and the acceptance tests with OpenTofu against the fake Matterbridge in
+#     internal/fakematterbridge.
+#   - docker: the acceptance tests TestAccDocker* against a real Matterbridge in Docker (internal/realmb). They
+#     install a plugin from npm.
 name: Tests
 
 on:
@@ -40,3 +43,31 @@ jobs:
           go generate ./...
           git diff --compact-summary --exit-code -- docs || \
             (echo; echo "The docs are not up to date. Run 'go generate ./...' and commit."; exit 1)
+
+  docker:
+    name: Acceptance (Matterbridge ${{ matrix.matterbridge }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # The version that the provider targets (realmb.DefaultImageTag).
+        matterbridge: ["3.11.0"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+      - uses: opentofu/setup-opentofu@v2
+        with:
+          tofu_version: '1.13.2'
+          tofu_wrapper: false
+      - name: Pull the Matterbridge image
+        run: docker pull luligu/matterbridge:${{ matrix.matterbridge }}
+      - name: Acceptance tests with a real Matterbridge
+        env:
+          TF_ACC: "1"
+          TF_ACC_DOCKER: "1"
+          MATTERBRIDGE_IMAGE_TAG: ${{ matrix.matterbridge }}
+        run: TF_ACC_TERRAFORM_PATH="$(command -v tofu)" go test -v -timeout 25m -run '^TestAccDocker' ./internal/provider

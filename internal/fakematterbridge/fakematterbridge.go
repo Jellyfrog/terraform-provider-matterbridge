@@ -4,7 +4,8 @@
 //   - The WebSocket upgrade is the authentication: ?password= must be the frontend password.
 //   - Some /api/config names do not answer if the value is incorrect.
 //   - /api/savepluginconfig answers before the config changes (fire and forget).
-//   - /api/install answers at once. A snackbar broadcast tells when npm is done.
+//   - /api/install answers at once. A snackbar broadcast tells when npm is done. After npm, Matterbridge adds
+//     a new plugin itself (then /api/addplugin fails), and removes an uninstalled plugin.
 //   - /api/plugins shows a new plugin version only after /api/restart.
 //   - /api/restart drops all connections without an answer. The server is down for RestartDelay.
 //
@@ -570,6 +571,14 @@ func (s *Server) npm(command, pkg string) {
 	}
 	if success {
 		s.info["restartRequired"], s.info["fixedRestartRequired"] = true, true
+		// As the PluginManager of Matterbridge 3.11: after npm, it adds (and loads) a new plugin, and removes an
+		// uninstalled plugin.
+		if command == "install" && s.plugin(name) == nil {
+			s.addPluginLocked(name)
+		}
+		if command == "uninstall" {
+			s.plugins = slices.DeleteFunc(s.plugins, func(p *Plugin) bool { return p.Name == name })
+		}
 	}
 	s.mu.Unlock()
 	if success {
@@ -582,10 +591,17 @@ func (s *Server) npm(command, pkg string) {
 func (s *Server) addPlugin(name string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	version, installed := s.installed[name]
+	_, installed := s.installed[name]
 	if len(name) < 10 || !installed || s.plugin(name) != nil {
 		return fmt.Errorf("Plugin %s not added", name)
 	}
+	s.addPluginLocked(name)
+	return nil
+}
+
+// addPluginLocked adds the installed plugin. The caller holds s.mu.
+func (s *Server) addPluginLocked(name string) {
+	version := s.installed[name]
 	s.plugins = append(s.plugins, &Plugin{
 		Type: "DynamicPlatform", Name: name, Version: version, LatestVersion: Registry[name][len(Registry[name])-1], Enabled: true, Loaded: true,
 		ConfigJSON: map[string]any{"name": name, "type": "DynamicPlatform", "version": version, "debug": false, "unregisterOnShutdown": false},
@@ -595,7 +611,6 @@ func (s *Server) addPlugin(name string) error {
 		}},
 	})
 	s.info["restartRequired"] = true
-	return nil
 }
 
 func (s *Server) pluginCommand(method, name string) error {

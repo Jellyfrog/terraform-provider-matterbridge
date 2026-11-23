@@ -12,6 +12,7 @@ go build .                         # provider binary
 go test ./...                      # unit tests (client against the in-process fake)
 TF_ACC=1 go test ./internal/provider -run TestAcc -v           # acceptance tests with real tofu + fake server
 TF_ACC=1 go test ./internal/provider -run TestAccPlugin -count=1 -v   # one test
+TF_ACC=1 TF_ACC_DOCKER=1 go test ./internal/provider -run TestAccDocker -v   # real Matterbridge in Docker (needs npm)
 go run ./cmd/fake-matterbridge     # fake server for manual runs (prints url); use dev_overrides
 gofmt -l . && go vet ./...
 ```
@@ -25,10 +26,11 @@ Acceptance tests find tofu with `mise which tofu` (override with `TF_ACC_TERRAFO
   - Some `/api/config` names never answer an invalid value, so validate at plan time and rely on the per-request timeout.
   - Numbers (`setmatterport`, passcode, discriminator) must be sent as strings. Log levels are sent capitalized but read back lowercase.
   - `/api/savepluginconfig` is fire-and-forget, so poll `/api/plugins` until the config matches. The config must contain the correct `name` and `type`, or Matterbridge silently ignores it (and logs it, secrets included).
-  - `/api/install` completes asynchronously. Success or failure arrives only as a `snackbar` broadcast ("Installed package X" / "Package X not installed"). A new plugin version shows only after a full `/api/restart`, and so does `setbridgemode`.
+  - `/api/install` completes asynchronously. Success or failure arrives only as a `snackbar` broadcast ("Installed package X" / "Package X not installed"). Some milliseconds later, the PluginManager adds and loads a new plugin itself, so `/api/addplugin` then fails ("Plugin X not added"): `apply` waits for the plugin (`waitAdded`) and adds it only if it is missing. An uninstall removes the plugin. A new plugin has no `latestVersion` until the update worker runs. A new plugin version shows only after a full `/api/restart`, and so does `setbridgemode`.
   - In bridge mode, `/api/restartplugin` loses the plugin's devices (the old endpoints stay in the aggregator, and re-adding them fails). That is why `restart = "auto"` means a full restart in bridge mode, and `plugin` falls back to a full restart if `registeredDevices` stays 0.
   - `/api/restart` drops the socket without answering. `Client.Restart` tracks an explicit `restartPhase` (stopping, starting, loading), and its timeout error names the phase. Wait for a new `startupAt` and for the plugins to be started.
 - `internal/fakematterbridge`: fake WS server that reproduces those quirks. Its `testdata/` has the configJson and schemaJson of matterbridge-zigbee2mqtt 3.3.0 and matterbridge-hass 1.6.0, made-up devices, and fake secrets (`fake-mqtt-password`, `fake-ha-token`). Tests use `server.Do(...)` to make out-of-band frontend changes and `server.Calls()` to assert which mutating methods ran.
+- `internal/realmb`: starts a real Matterbridge in Docker (testcontainers-go), one container per test. `TestAccDocker*` (`TF_ACC=1 TF_ACC_DOCKER=1`) run against it. If `HTTPS_PROXY` is a local proxy, the container uses host networking; on a host kernel without IPv6, `noipv6.cjs` (preloaded with `NODE_OPTIONS`) maps the IPv6 UDP sockets of matter.js to IPv4.
 - `plugin_resource.go`: `config` (dynamic) and `sensitive_config` (`map(string)`, not dynamic, because OpenTofu core logs dynamic state values at DEBUG) manage only their top-level keys.
   - Writes are read-modify-write of the full configJson. `name`, `type` and `version` are never managed.
   - Removing a key stops managing it; the value stays in Matterbridge.
